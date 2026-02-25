@@ -2,7 +2,7 @@
 
 client_id = "e460960cb0dc30271c0e123b9bf9b216"
 name = "custom-price-calculate"
-application_url = "https://36b7-103-177-220-52.ngrok-free.app"
+application_url = "https://unlimited-varints-creator-app-for-nprint-client.onrender.com"
 embedded = true
 
 [build]
@@ -24,10 +24,10 @@ api_version = "2026-04"
 scopes = "write_products,read_products,read_metaobjects,write_metaobjects,write_metaobject_definitions,write_orders,write_customers,write_draft_orders,write_files,read_files,read_draft_orders"
 
 [auth]
-redirect_urls = [ "https://36b7-103-177-220-52.ngrok-free.app/api/auth" ]
+redirect_urls = [ "https://unlimited-varints-creator-app-for-nprint-client.onrender.com/api/auth" ]
 
 
 [app_proxy]
-url = "https://36b7-103-177-220-52.ngrok-free.app" 
+url = "https://unlimited-varints-creator-app-for-nprint-client.onrender.com" 
 subpath = "customprice"
 prefix = "apps"
