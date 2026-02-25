@@ -1,0 +1,122 @@
+<style>
+  .custom-variant-block { max-width: 500px; margin: 20px 0; font-family: sans-serif; }
+  .custom-variant-wrapper { margin-bottom: 15px; }
+  .custom-variant-label { font-weight: bold; display: block; margin-bottom: 5px; font-size: 14px; }
+  .custom-variant-select { width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #ccc; background: #fff; }
+  .file-upload-label { display: block; padding: 15px; border: 2px dashed #bbb; text-align: center; cursor: pointer; border-radius: 5px; background: #f9f9f9; }
+  .custom-variant-button { width: 100%; padding: 12px; background: #000; color: #fff; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; margin-top: 10px; }
+</style>
+
+<div class="custom-variant-block">
+  {% assign product_custom_variants = product.metafields.custom.custom_variants.value %}
+
+  <form id="customVariantForm">
+    <input type="hidden" name="variantId" value="{{ product.selected_or_first_available_variant.id }}">
+    <input type="hidden" id="totalPriceInput" value="0">
+
+    {% for custom_variant in product_custom_variants %}
+      <div class="custom-variant-wrapper">
+        <label class="custom-variant-label">{{ custom_variant.variantTitle }}</label>
+        <select class="custom-variant-select custom-calc-trigger" name="properties[{{ custom_variant.variantTitle }}]">
+          {% for option in custom_variant.options %}
+            <option value="{{ option.value }}">{{ option.label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    {% endfor %}
+
+    <div class="custom-variant-wrapper">
+      <label class="custom-variant-label">Sets</label>
+      <select class="custom-variant-select custom-calc-trigger" id="setsSelect">
+        {% for i in (1..50) %}<option value="{{ i }}">{{ i }}</option>{% endfor %}
+      </select>
+    </div>
+
+    <div class="custom-variant-wrapper">
+      <label class="file-upload-label" for="imageUpload">
+        📁 <span id="fileNameDisplay">Upload Design</span>
+      </label>
+      <input type="file" id="imageUpload" style="display:none;" accept="image/*">
+    </div>
+
+    <div id="totalPriceDisplay" style="font-size: 22px; font-weight: bold; margin: 15px 0;">Total: 0.00</div>
+    <button type="submit" class="custom-variant-button" id="submitBtn">Generate Invoice</button>
+  </form>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  const form = document.getElementById("customVariantForm");
+  const submitBtn = document.getElementById("submitBtn");
+  const fileInput = document.getElementById("imageUpload");
+  const fileNameDisplay = document.getElementById("fileNameDisplay");
+
+  function calculateTotal() {
+    let basePrice = parseFloat("{{ product.selected_or_first_available_variant.price | divided_by: 100.0 }}");
+    let optionTotal = 0;
+    document.querySelectorAll(".custom-calc-trigger").forEach(select => {
+      if (select.id !== "setsSelect") optionTotal += parseFloat(select.value || 0);
+    });
+    const sets = parseInt(document.getElementById("setsSelect").value || 1);
+    const finalTotal = (basePrice + optionTotal) * sets;
+    document.getElementById("totalPriceInput").value = finalTotal.toFixed(2);
+    document.getElementById("totalPriceDisplay").innerText = "Total: " + finalTotal.toFixed(2);
+  }
+
+  document.querySelectorAll(".custom-calc-trigger").forEach(el => el.addEventListener("change", calculateTotal));
+  fileInput.addEventListener("change", () => { if(fileInput.files[0]) fileNameDisplay.innerText = fileInput.files[0].name; });
+
+  form.addEventListener("submit", async function (e) {
+    e.preventDefault();
+    submitBtn.innerText = "Processing...";
+    submitBtn.disabled = true;
+
+    const payload = {
+      variantId: form.variantId.value,
+      totalPrice: document.getElementById("totalPriceInput").value,
+      fileName: fileInput.files[0] ? fileInput.files[0].name : "",
+      imageData: null,
+      properties: {}
+    };
+
+    document.querySelectorAll(".custom-calc-trigger").forEach(select => {
+      const label = select.id === "setsSelect" ? "Sets" : select.name.replace("properties[", "").replace("]", "").trim();
+      payload.properties[label] = select.options[select.selectedIndex].text;
+    });
+
+    if (fileInput.files[0]) {
+      payload.imageData = await new Promise(r => {
+        const reader = new FileReader();
+        reader.onloadend = () => r(reader.result);
+        reader.readAsDataURL(fileInput.files[0]);
+      });
+    }
+
+    try {
+      const response = await fetch('/apps/customprice/api/customprice', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const result = await response.json();
+      if (result.url) window.location.href = result.url;
+      else { alert(result.error); submitBtn.disabled = false; submitBtn.innerText = "Generate Invoice"; }
+    } catch (err) {
+    console.error("Frontend Error:", err);
+    alert("Error Detail: " + err.message); // এটি আপনাকে বলবে আসলে সমস্যাটা কোথায়
+    submitBtn.disabled = false;
+    submitBtn.innerText = "Generate Invoice";
+}
+  });
+
+  calculateTotal();
+});
+</script>
+
+{% schema %}
+{
+  "name": "Product Variant Block",
+  "target": "section",
+  "settings": []
+}
+{% endschema %}
